@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from typing import Any, Optional, Union
+from dataclasses import dataclass, field
 
 import pydantic as pd
 
 from robusta_krr.core.abstract import formatters
-from robusta_krr.core.models.allocations import RecommendationValue, ResourceAllocations, ResourceType
+from robusta_krr.core.models.allocations import NONE_LITERAL, NAN_LITERAL, K8sResourceAllocations, RecommendationValue, ResourceAllocations, ResourceType
 from robusta_krr.core.models.objects import K8sObjectData
-from robusta_krr.core.models.severity import Severity
+from robusta_krr.core.models.severity import Severity, severity_from_diff_percent
 from robusta_krr.core.models.config import Config
+from robusta_krr.cost_providers.base import CostData
 
 
 class Recommendation(pd.BaseModel):
@@ -113,3 +115,15 @@ class Result(pd.BaseModel):
             if self.score < 90
             else "A"
         )
+
+
+@dataclass
+class ResourceAllocations:
+    requests: dict[ResourceType, RecommendationValue]
+    limits: dict[ResourceType, RecommendationValue]
+    info: dict[ResourceType, Optional[str]] = field(default_factory=dict)
+    cost_data: Optional[CostData] = None
+
+    @staticmethod
+    def from_container(container: V1Container) -> ResourceAllocations:
+        # ... existing code ...

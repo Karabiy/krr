@@ -4,6 +4,7 @@ import asyncio
 import inspect
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
 from uuid import UUID
 
@@ -19,6 +20,7 @@ from robusta_krr.core.abstract.strategies import BaseStrategy
 from robusta_krr.core.models.config import Config
 from robusta_krr.core.runner import Runner
 from robusta_krr.utils.version import get_version
+from robusta_krr.utils.config_loader import load_config_file, merge_configs, validate_config
 
 app = typer.Typer(
     pretty_exceptions_show_locals=False,
@@ -54,6 +56,12 @@ def load_commands() -> None:
         def strategy_wrapper(_strategy_name: str = strategy_name):
             def run_strategy(
                 ctx: typer.Context,
+                config_file: Optional[str] = typer.Option(
+                    None,
+                    "--config",
+                    help="Path to config file (.krr.yaml). If not provided, will search for config in current and parent directories.",
+                    rich_help_panel="General Settings",
+                ),
                 kubeconfig: Optional[str] = typer.Option(
                     None,
                     "--kubeconfig",
@@ -266,51 +274,96 @@ def load_commands() -> None:
                     help="Send to output to a slack channel, must have SLACK_BOT_TOKEN",
                     rich_help_panel="Output Settings",
                 ),
+                # Add cost provider options
+                cost_provider: Optional[str] = typer.Option(
+                    None,
+                    "--cost-provider",
+                    help="Cost provider to use for accurate pricing (e.g., 'vantage')",
+                    rich_help_panel="Cost Settings",
+                ),
+                vantage_api_key: Optional[str] = typer.Option(
+                    None,
+                    "--vantage-api-key",
+                    help="Vantage API key for cost calculations. Can also use VANTAGE_API_KEY env var",
+                    envvar="VANTAGE_API_KEY",
+                    rich_help_panel="Cost Settings",
+                ),
+                cost_currency: str = typer.Option(
+                    "USD",
+                    "--cost-currency",
+                    help="Currency for cost calculations (e.g., USD, EUR, GBP)",
+                    rich_help_panel="Cost Settings",
+                ),
+                cost_cache_hours: int = typer.Option(
+                    24,
+                    "--cost-cache-hours",
+                    help="Hours to cache cost data",
+                    rich_help_panel="Cost Settings",
+                ),
                 **strategy_args,
             ) -> None:
                 f"""Run KRR using the `{_strategy_name}` strategy"""
                 if not show_severity and format != "csv":
                     raise click.BadOptionUsage("--exclude-severity", "--exclude-severity works only with format=csv")
 
+                # Load config from file if exists
+                file_config = {}
+                if config_file:
+                    file_config = load_config_file(Path(config_file))
+                else:
+                    # Try to find config file automatically
+                    file_config = load_config_file()
+                
+                # Build CLI args dict
+                cli_args = {
+                    "kubeconfig": kubeconfig,
+                    "impersonate_user": impersonate_user,
+                    "impersonate_group": impersonate_group,
+                    "clusters": "*" if all_clusters else clusters,
+                    "namespaces": "*" if "*" in namespaces else namespaces if namespaces else None,
+                    "resources": "*" if "*" in resources else resources if resources else None,
+                    "selector": selector,
+                    "prometheus_url": prometheus_url,
+                    "prometheus_auth_header": prometheus_auth_header,
+                    "prometheus_other_headers": prometheus_other_headers,
+                    "prometheus_ssl_enabled": prometheus_ssl_enabled,
+                    "prometheus_cluster_label": prometheus_cluster_label,
+                    "prometheus_label": prometheus_label,
+                    "eks_managed_prom": eks_managed_prom,
+                    "eks_managed_prom_region": eks_managed_prom_region,
+                    "eks_managed_prom_profile_name": eks_managed_prom_profile_name,
+                    "eks_access_key": eks_access_key,
+                    "eks_secret_key": eks_secret_key,
+                    "eks_service_name": eks_service_name,
+                    "coralogix_token": coralogix_token,
+                    "openshift": openshift,
+                    "max_workers": max_workers,
+                    "format": format,
+                    "show_cluster_name": show_cluster_name,
+                    "verbose": verbose,
+                    "cpu_min_value": cpu_min_value,
+                    "memory_min_value": memory_min_value,
+                    "quiet": quiet,
+                    "log_to_stderr": log_to_stderr,
+                    "width": width,
+                    "file_output": file_output,
+                    "file_output_dynamic": file_output_dynamic,
+                    "slack_output": slack_output,
+                    "show_severity": show_severity,
+                    "strategy": _strategy_name,
+                    "other_args": strategy_args,
+                    "cost_provider": cost_provider,
+                    "vantage_api_key": vantage_api_key,
+                    "cost_currency": cost_currency,
+                    "cost_cache_hours": cost_cache_hours,
+                }
+                
+                # Merge file config with CLI args (CLI takes precedence)
+                merged_config = merge_configs(cli_args, file_config)
+                merged_config = validate_config(merged_config)
+
                 try:
-                    config = Config(
-                        kubeconfig=kubeconfig,
-                        impersonate_user=impersonate_user,
-                        impersonate_group=impersonate_group,
-                        clusters="*" if all_clusters else clusters,
-                        namespaces="*" if "*" in namespaces else namespaces,
-                        resources="*" if "*" in resources else resources,
-                        selector=selector,
-                        prometheus_url=prometheus_url,
-                        prometheus_auth_header=prometheus_auth_header,
-                        prometheus_other_headers=prometheus_other_headers,
-                        prometheus_ssl_enabled=prometheus_ssl_enabled,
-                        prometheus_cluster_label=prometheus_cluster_label,
-                        prometheus_label=prometheus_label,
-                        eks_managed_prom=eks_managed_prom,
-                        eks_managed_prom_region=eks_managed_prom_region,
-                        eks_managed_prom_profile_name=eks_managed_prom_profile_name,
-                        eks_access_key=eks_access_key,
-                        eks_secret_key=eks_secret_key,
-                        eks_service_name=eks_service_name,
-                        coralogix_token=coralogix_token,
-                        openshift=openshift,
-                        max_workers=max_workers,
-                        format=format,
-                        show_cluster_name=show_cluster_name,
-                        verbose=verbose,
-                        cpu_min_value=cpu_min_value,
-                        memory_min_value=memory_min_value,
-                        quiet=quiet,
-                        log_to_stderr=log_to_stderr,
-                        width=width,
-                        file_output=file_output,
-                        file_output_dynamic=file_output_dynamic,
-                        slack_output=slack_output,
-                        show_severity=show_severity,
-                        strategy=_strategy_name,
-                        other_args=strategy_args,
-                    )
+                    config = Config(**merged_config)
                     Config.set_config(config)
                 except ValidationError:
                     logger.exception("Error occured while parsing arguments")

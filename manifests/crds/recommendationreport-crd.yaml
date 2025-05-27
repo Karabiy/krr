@@ -1,0 +1,116 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: recommendationreports.krr.robusta.dev
+spec:
+  group: krr.robusta.dev
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        required: ["spec"]
+        properties:
+          spec:
+            type: object
+            required: ["scanTime", "scope"]
+            properties:
+              scanTime:
+                type: string
+                format: date-time
+              scope:
+                type: object
+                properties:
+                  clusters:
+                    type: array
+                    items:
+                      type: string
+                  namespaces:
+                    type: array
+                    items:
+                      type: string
+                  labelSelector:
+                    type: string
+              
+              summary:
+                type: object
+                properties:
+                  totalWorkloads:
+                    type: integer
+                  totalRecommendations:
+                    type: integer
+                  estimatedMonthlySavings:
+                    type: string
+                  byNamespace:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        workloads:
+                          type: integer
+                        savings:
+                          type: string
+                  bySeverity:
+                    type: object
+                    properties:
+                      critical:
+                        type: integer
+                      warning:
+                        type: integer
+                      ok:
+                        type: integer
+                      good:
+                        type: integer
+                      unknown:
+                        type: integer
+              
+              recommendations:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+          
+          status:
+            type: object
+            properties:
+              phase:
+                type: string
+                enum: ["completed", "partial", "failed", "processing"]
+              completionTime:
+                type: string
+              recommendationsCreated:
+                type: integer
+              errors:
+                type: array
+                items:
+                  type: string
+    additionalPrinterColumns:
+    - name: Workloads
+      type: integer
+      jsonPath: .spec.summary.totalWorkloads
+    - name: Recommendations
+      type: integer
+      jsonPath: .spec.summary.totalRecommendations
+    - name: Savings
+      type: string
+      jsonPath: .spec.summary.estimatedMonthlySavings
+    - name: Phase
+      type: string
+      jsonPath: .status.phase
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp
+  scope: Namespaced
+  names:
+    plural: recommendationreports
+    singular: recommendationreport
+    kind: RecommendationReport
+    shortNames:
+    - recreport
+    - rrep 

@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import enum
 import math
-from typing import Literal, Optional, TypeVar, Union
+from typing import Literal, Optional, TypeVar, Union, Any
 
 import pydantic as pd
 from kubernetes.client.models import V1Container
 
 from robusta_krr.utils import resource_units
+
+# Add this import - but make it optional to avoid circular imports
+try:
+    from robusta_krr.cost_providers.base import CostData
+except ImportError:
+    CostData = None
 
 
 class ResourceType(str, enum.Enum):
@@ -53,6 +59,7 @@ class ResourceAllocations(pd.BaseModel):
     requests: dict[ResourceType, RecommendationValue]
     limits: dict[ResourceType, RecommendationValue]
     info: dict[ResourceType, Optional[str]] = {}
+    cost_data: Optional[Any] = None  # Use Any to avoid circular import, will be CostData at runtime
 
     @staticmethod
     def __parse_resource_value(value: RecommendationValueRaw) -> RecommendationValue:

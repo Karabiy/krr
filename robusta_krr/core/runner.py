@@ -288,14 +288,16 @@ class Runner:
         else:
             await asyncio.gather(*[self._check_data_availability(cluster) for cluster in clusters])
 
-        with ProgressBar(title="Calculating Recommendation") as self.__progressbar:
-            workloads = await self._k8s_loader.list_scannable_objects(clusters)
-            if not clusters or len(clusters) == 1:
-                cluster_name = clusters[0] if clusters else None # its none if krr is running inside cluster
-                prometheus_loader = self._get_prometheus_loader(cluster_name)
-                cluster_summary = await prometheus_loader.get_cluster_summary()
-            else:
-                cluster_summary = {}
+        workloads = await self._k8s_loader.list_scannable_objects(clusters)
+        
+        if not clusters or len(clusters) == 1:
+            cluster_name = clusters[0] if clusters else None # its none if krr is running inside cluster
+            prometheus_loader = self._get_prometheus_loader(cluster_name)
+            cluster_summary = await prometheus_loader.get_cluster_summary()
+        else:
+            cluster_summary = {}
+            
+        with ProgressBar(total=len(workloads), title="Calculating Recommendations") as self.__progressbar:
             scans = await asyncio.gather(*[self._gather_object_allocations(k8s_object) for k8s_object in workloads])
 
         successful_scans = [scan for scan in scans if scan is not None]

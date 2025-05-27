@@ -1,0 +1,186 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: resourcerecommendations.krr.robusta.dev
+spec:
+  group: krr.robusta.dev
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        required: ["spec"]
+        properties:
+          spec:
+            type: object
+            required: ["targetRef", "recommendations", "analysis"]
+            properties:
+              targetRef:
+                type: object
+                required: ["kind", "name"]
+                properties:
+                  apiVersion:
+                    type: string
+                    default: "apps/v1"
+                  kind:
+                    type: string
+                    enum: ["Deployment", "StatefulSet", "DaemonSet", "Job", "Rollout", "CronJob"]
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+              
+              recommendations:
+                type: object
+                required: ["containers"]
+                properties:
+                  containers:
+                    type: array
+                    items:
+                      type: object
+                      required: ["name", "resources"]
+                      properties:
+                        name:
+                          type: string
+                        resources:
+                          type: object
+                          properties:
+                            cpu:
+                              type: object
+                              properties:
+                                request:
+                                  type: string
+                                  pattern: "^[0-9]+(\\.[0-9]+)?(m|)$"
+                                limit:
+                                  type: string
+                                  pattern: "^[0-9]+(\\.[0-9]+)?(m|)$"
+                            memory:
+                              type: object
+                              properties:
+                                request:
+                                  type: string
+                                  pattern: "^[0-9]+(\\.[0-9]+)?(Mi|Gi|Ki|M|G|K)$"
+                                limit:
+                                  type: string
+                                  pattern: "^[0-9]+(\\.[0-9]+)?(Mi|Gi|Ki|M|G|K)$"
+              
+              analysis:
+                type: object
+                required: ["strategy", "dataPoints", "confidence"]
+                properties:
+                  strategy:
+                    type: string
+                  historyDuration:
+                    type: string
+                    pattern: "^[0-9]+(h|d|w)$"
+                  dataPoints:
+                    type: integer
+                    minimum: 1
+                  confidence:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                  metrics:
+                    type: object
+                    properties:
+                      cpu:
+                        type: object
+                        properties:
+                          current:
+                            type: string
+                          recommended:
+                            type: string
+                          info:
+                            type: string
+                      memory:
+                        type: object
+                        properties:
+                          current:
+                            type: string
+                          recommended:
+                            type: string
+                          info:
+                            type: string
+              
+              impact:
+                type: object
+                properties:
+                  estimatedSavings:
+                    type: object
+                    properties:
+                      cpu:
+                        type: string
+                      memory:
+                        type: string
+                      monthlyCost:
+                        type: string
+                  severity:
+                    type: string
+                    enum: ["critical", "warning", "ok", "good", "unknown"]
+                  
+          status:
+            type: object
+            properties:
+              phase:
+                type: string
+                enum: ["pending", "approved", "applied", "failed", "rejected"]
+              conditions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                    lastTransitionTime:
+                      type: string
+                    reason:
+                      type: string
+                    message:
+                      type: string
+              appliedAt:
+                type: string
+              appliedBy:
+                type: string
+              actualSavings:
+                type: object
+                properties:
+                  cpu:
+                    type: string
+                  memory:
+                    type: string
+                  monthlyCost:
+                    type: string
+    additionalPrinterColumns:
+    - name: Target
+      type: string
+      jsonPath: .spec.targetRef.name
+    - name: Kind
+      type: string
+      jsonPath: .spec.targetRef.kind
+    - name: Strategy
+      type: string
+      jsonPath: .spec.analysis.strategy
+    - name: Confidence
+      type: number
+      jsonPath: .spec.analysis.confidence
+    - name: Severity
+      type: string
+      jsonPath: .spec.impact.severity
+    - name: Phase
+      type: string
+      jsonPath: .status.phase
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp
+  scope: Namespaced
+  names:
+    plural: resourcerecommendations
+    singular: resourcerecommendation
+    kind: ResourceRecommendation
+    shortNames:
+    - resrec
+    - rr 

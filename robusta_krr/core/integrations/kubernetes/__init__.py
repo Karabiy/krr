@@ -22,6 +22,7 @@ from robusta_krr.core.models.config import settings
 from robusta_krr.core.models.objects import HPAData, K8sObjectData, KindLiteral, PodData
 from robusta_krr.core.models.result import ResourceAllocations
 from robusta_krr.utils.object_like_dict import ObjectLikeDict
+from robusta_krr.utils.progress_bar import ProgressBar
 
 from . import config_patch as _
 
@@ -614,13 +615,17 @@ class KubernetesLoader:
         self.cluster_loaders = {cl.cluster: cl for cl in _cluster_loaders if cl is not None}
         if self.cluster_loaders == {}:
             logger.error("Could not load any cluster.")
-            return
+            return []
         
-        return [
-            object
-            for cluster_loader in self.cluster_loaders.values()
-            for object in await cluster_loader.list_scannable_objects()
-        ]
+        total_objects = []
+        with ProgressBar(total=len(self.cluster_loaders), title="Discovering workloads") as progress:
+            for cluster_loader in self.cluster_loaders.values():
+                cluster_name = cluster_loader.cluster or "current"
+                progress.progress(description=f"Scanning {cluster_name}")
+                cluster_objects = await cluster_loader.list_scannable_objects()
+                total_objects.extend(cluster_objects)
+        
+        return total_objects
 
     async def load_pods(self, object: K8sObjectData) -> list[PodData]:
         try:

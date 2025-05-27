@@ -1,0 +1,73 @@
+# Example KRR Configuration File
+# Copy this file to .krr.yaml to use it
+
+# Kubernetes Settings
+# clusters:
+#   - production
+#   - staging
+# namespaces:
+#   - default
+#   - apps
+#   - monitoring
+# resources:
+#   - Deployment
+#   - StatefulSet
+# selector: "app=myapp,env!=test"
+
+# Prometheus Settings
+# prometheus_url: http://prometheus:9090
+# prometheus_ssl_enabled: false
+# prometheus_cluster_label: cluster
+# prometheus_other_headers:
+#   X-Custom-Header: value1
+#   Authorization: Bearer token123
+
+# Cost Integration Settings (Optional)
+# cost_provider: vantage                    # Enable Vantage for AWS pricing
+# vantage_api_key: ${VANTAGE_API_KEY}      # Use environment variable
+# cost_currency: USD                        # Currency for cost calculations
+# cost_cache_hours: 24                      # Cache pricing data for 24 hours
+
+# Recommendation Settings
+cpu_min_value: 10      # Minimum CPU in millicores
+memory_min_value: 100  # Minimum memory in MB
+
+# Output Settings
+format: table
+show_cluster_name: false
+show_severity: true
+# file_output: krr-report.txt
+# slack_output: "#k8s-optimization"
+
+# Threading Settings
+max_workers: 10
+
+# Logging Settings
+verbose: false
+quiet: false
+log_to_stderr: false
+# width: 120
+
+# Strategy-specific settings (for 'simple' strategy)
+# history_duration: 336  # 14 days in hours
+# percentile: 95
+
+# Example profiles for different environments
+# You can have environment-specific configs:
+# 
+# For production:
+# namespaces:
+#   - prod-app
+#   - prod-services
+# cpu_min_value: 50
+# memory_min_value: 256
+# cost_provider: vantage
+# cost_currency: USD
+#
+# For development:
+# namespaces:
+#   - dev
+#   - test
+# cpu_min_value: 10
+# memory_min_value: 64
+# cost_provider: null  # No cost tracking for dev 
